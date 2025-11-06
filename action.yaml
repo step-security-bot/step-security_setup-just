@@ -1,0 +1,44 @@
+name: 'Setup just'
+author: 'step-security'
+description: 'Install the just command runner'
+branding:
+  icon: 'play'
+  color: 'blue'
+inputs:
+  just-version:
+    description: 'A valid semver specifier of the just version to install'
+  github-token:
+    description: 'Github token to use to authenticate downloads'
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+
+    - name: Check subscription
+      shell: bash
+      run : |
+        # validate subscription status
+        API_URL="https://agent.api.stepsecurity.io/v1/github/$GITHUB_REPOSITORY/actions/subscription"
+
+        # Set a timeout for the curl command (3 seconds)
+        RESPONSE=$(curl --max-time 3 -s -w "%{http_code}" "$API_URL" -o /dev/null) || true
+        CURL_EXIT_CODE=$?
+
+        # Decide based on curl exit code and HTTP status
+        if [ $CURL_EXIT_CODE -ne 0 ]; then
+          echo "Timeout or API not reachable. Continuing to next step."
+        elif [ "$RESPONSE" = "200" ]; then
+          :
+        elif [ "$RESPONSE" = "403" ]; then
+          echo "Subscription is not valid. Reach out to support@stepsecurity.io"
+          exit 1
+        else
+          echo "Timeout or API not reachable. Continuing to next step."
+        fi
+
+    - uses: step-security/setup-crate@v1.4.0
+      with:
+        repo: casey/just
+        version: ${{ inputs.just-version }}
+        github-token: ${{ inputs.github-token }}
